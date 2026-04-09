@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SceneShift Bench v3 Explorer</title>
+<title>SceneShift Bench Explorer</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
 :root {
@@ -124,7 +124,9 @@ tbody tr:hover { background: rgba(108,92,231,0.06); }
   overflow: hidden; transition: transform 0.2s, border-color 0.2s;
 }
 .scene-tile:hover { transform: translateY(-4px); border-color: var(--accent); }
-.scene-tile img { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: #222; display: block; }
+.scene-tile-images { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.scene-tile img { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: #222; display: block; cursor: pointer; }
+.scene-tile img.full-width { grid-column: 1 / -1; }
 .scene-tile-info { padding: 10px 14px; }
 .scene-tile-info .sid { font-family: 'SF Mono', monospace; font-size: 0.82rem; font-weight: 700; }
 .scene-tile-info .smeta { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
@@ -210,7 +212,7 @@ tbody tr:hover { background: rgba(108,92,231,0.06); }
 </div>
 
 <div class="header">
-  <h1><span>SceneShift Bench v3</span> Explorer</h1>
+  <h1><span>SceneShift Bench</span> Explorer</h1>
   <p id="headerSub">Loading dataset...</p>
 </div>
 
@@ -237,7 +239,7 @@ tbody tr:hover { background: rgba(108,92,231,0.06); }
 
   <div class="section" id="gallery">
     <h2 class="section-title">Scene Gallery</h2>
-    <p style="color:var(--muted);margin-bottom:20px;">Top-down occupancy maps of all <span id="galleryCount"></span> scenes used in the benchmark. Each floor plan shows the room layout with furniture placement.</p>
+    <p style="color:var(--muted);margin-bottom:20px;">All <span id="galleryCount"></span> scenes used in the benchmark. Each scene shows a 3D overview thumbnail and a top-down occupancy map.</p>
     <div class="scene-gallery" id="sceneGallery"></div>
   </div>
 
@@ -313,7 +315,7 @@ tbody tr:hover { background: rgba(108,92,231,0.06); }
 
   <div class="section" id="analysis">
     <h2 class="section-title">Generated Analysis Figure</h2>
-    <img class="analysis-img" src="./assets/analysis.png" alt="SceneShift Bench v3 data distribution">
+    <img class="analysis-img" src="./assets/analysis.png" alt="SceneShift Bench data distribution">
   </div>
 </div>
 
@@ -353,7 +355,6 @@ function renderOverview() {
     ['Patterns', DB.all_patterns.length],
     ['Question Types', DB.all_question_types.length],
     ['Obj/Scene', gs.max_objects_per_scene || 5],
-    ['Build Time', (gs.elapsed_minutes||0)+' min'],
   ];
   $('#kpiGrid').innerHTML = kpis.map(([l,v])=>`<div class="kpi-card"><span class="value">${typeof v==='number'?fmt(v):v}</span><span class="label">${l}</span></div>`).join('');
   $('#headerSub').textContent = `${fmt(DB.total_questions)} questions · ${DB.total_scenes} scenes · ${DB.all_patterns.length} patterns · ${DB.all_question_types.length} question types`;
@@ -564,7 +565,10 @@ function renderGallery() {
     const objTags = (s.object_labels||[]).slice(0,5).map(l => `<span class="tag tag-teal" style="font-size:0.68rem;padding:1px 6px">${esc(l)}</span>`).join('');
     const extra = (s.object_labels||[]).length > 5 ? `<span class="tag" style="font-size:0.68rem;padding:1px 6px">+${(s.object_labels||[]).length - 5}</span>` : '';
     return `<div class="scene-tile">
-      <img src="./data/scene_images/${s.scene_id}.png" alt="${s.scene_id}" loading="lazy">
+      <div class="scene-tile-images">
+        <img src="./data/scene_thumbnails/${s.scene_id}.jpg" alt="${s.scene_id} overview" loading="lazy" onclick="openLightbox(this.src)">
+        <img src="./data/scene_images/${s.scene_id}.png" alt="${s.scene_id} occupancy" loading="lazy" onclick="openLightbox(this.src)">
+      </div>
       <div class="scene-tile-info">
         <div class="sid">${s.scene_id}</div>
         <div class="smeta">${fmt(s.total_questions)} questions &middot; ${s.num_objects} objects</div>
