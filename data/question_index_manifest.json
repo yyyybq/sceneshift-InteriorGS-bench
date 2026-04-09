@@ -1,0 +1,32 @@
+[
+  {
+    "file": "question_index_part0.json",
+    "count": 25000,
+    "size_mb": 23.2
+  },
+  {
+    "file": "question_index_part1.json",
+    "count": 25000,
+    "size_mb": 23.1
+  },
+  {
+    "file": "question_index_part2.json",
+    "count": 25000,
+    "size_mb": 22.8
+  },
+  {
+    "file": "question_index_part3.json",
+    "count": 25000,
+    "size_mb": 22.7
+  },
+  {
+    "file": "question_index_part4.json",
+    "count": 25000,
+    "size_mb": 23.2
+  },
+  {
+    "file": "question_index_part5.json",
+    "count": 4362,
+    "size_mb": 4.1
+  }
+]

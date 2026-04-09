@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SceneShift Bench v3 Explorer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f0f13;
+  --surface: #18181f;
+  --surface2: #1e1e28;
+  --border: #2a2a38;
+  --ink: #e4e4ef;
+  --muted: #8888a4;
+  --accent: #6c5ce7;
+  --accent2: #00cec9;
+  --accent3: #fd79a8;
+  --accent4: #fdcb6e;
+  --accent5: #55efc4;
+  --radius: 16px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--ink); line-height: 1.5; min-height: 100vh;
+}
+.container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.header {
+  text-align: center; padding: 48px 24px 32px;
+  background: linear-gradient(135deg, rgba(108,92,231,0.15), rgba(0,206,201,0.1));
+  border-bottom: 1px solid var(--border);
+}
+.header h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; }
+.header h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-color: transparent; background-clip: text; color: transparent; }
+.header p { color: var(--muted); margin-top: 8px; font-size: 1.05rem; }
+.nav {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+  padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+.nav a {
+  padding: 8px 20px; border-radius: 999px; font-size: 0.9rem; font-weight: 600;
+  text-decoration: none; color: var(--muted); border: 1px solid var(--border); transition: all 0.2s;
+}
+.nav a:hover, .nav a.active { color: white; background: var(--accent); border-color: var(--accent); }
+.section { padding: 40px 0; }
+.section-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 24px; padding-left: 16px; border-left: 4px solid var(--accent); }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.kpi-card {
+  padding: 20px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border);
+  text-align: center; transition: transform 0.2s;
+}
+.kpi-card:hover { transform: translateY(-2px); }
+.kpi-card .value { display: block; font-size: 2rem; font-weight: 800; color: var(--accent2); }
+.kpi-card .label { display: block; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+.charts-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; margin-bottom: 24px; }
+.chart-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; min-height: 320px; position: relative;
+}
+.chart-box h3 { font-size: 0.95rem; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.chart-box canvas { max-height: 300px; }
+.chart-wide { grid-column: 1 / -1; }
+.table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+thead th { background: var(--surface2); color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; position: sticky; top: 0; }
+tbody tr:hover { background: rgba(108,92,231,0.06); }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Fira Code', monospace; }
+.tag {
+  display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+  background: rgba(108,92,231,0.15); color: var(--accent); margin: 2px; white-space: nowrap;
+}
+.tag-teal { background: rgba(0,206,201,0.15); color: var(--accent2); }
+.tag-pink { background: rgba(253,121,168,0.15); color: var(--accent3); }
+.tag-yellow { background: rgba(253,203,110,0.15); color: var(--accent4); }
+.explorer-controls {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;
+}
+.explorer-controls label { font-size: 0.8rem; color: var(--muted); display: grid; gap: 6px; }
+.explorer-controls input, .explorer-controls select {
+  padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--ink); font: inherit; font-size: 0.9rem;
+}
+.explorer-controls input:focus, .explorer-controls select:focus { outline: none; border-color: var(--accent); }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.toolbar .meta { color: var(--muted); font-size: 0.88rem; }
+.btn {
+  padding: 8px 20px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--ink); font: inherit; cursor: pointer; font-size: 0.88rem; transition: all 0.2s;
+}
+.btn:hover { background: var(--accent); border-color: var(--accent); color: white; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+.q-list { display: grid; gap: 12px; }
+.q-card {
+  padding: 16px 20px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border);
+  transition: border-color 0.2s;
+}
+.q-card:hover { border-color: var(--accent); }
+.q-card .q-text { font-size: 0.95rem; margin-bottom: 8px; line-height: 1.6; }
+.q-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.q-answer {
+  padding: 10px 14px; border-radius: 12px; background: rgba(0,206,201,0.08); border: 1px solid rgba(0,206,201,0.15);
+  font-family: 'SF Mono', monospace; font-size: 0.88rem; margin-top: 8px;
+}
+.q-answer strong { color: var(--accent2); }
+.q-expand { margin-top: 8px; }
+.q-json {
+  margin-top: 8px; padding: 12px; border-radius: 12px; background: var(--bg);
+  font-family: 'SF Mono', monospace; font-size: 0.78rem; line-height: 1.5;
+  max-height: 400px; overflow: auto; white-space: pre-wrap; word-break: break-all;
+  border: 1px solid var(--border); display: none;
+}
+.analysis-img { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); }
+/* ── Scene Gallery ── */
+.scene-gallery {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;
+}
+.scene-tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; transition: transform 0.2s, border-color 0.2s;
+}
+.scene-tile:hover { transform: translateY(-4px); border-color: var(--accent); }
+.scene-tile img { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: #222; display: block; }
+.scene-tile-info { padding: 10px 14px; }
+.scene-tile-info .sid { font-family: 'SF Mono', monospace; font-size: 0.82rem; font-weight: 700; }
+.scene-tile-info .smeta { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+.scene-tile-info .obj-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+/* ── Examples ── */
+.example-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.example-filters .filter-btn {
+  padding: 6px 16px; border-radius: 999px; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); transition: all 0.2s;
+}
+.example-filters .filter-btn.active, .example-filters .filter-btn:hover { background: var(--accent); border-color: var(--accent); color: white; }
+.example-major-section { margin-bottom: 40px; }
+.example-major-header {
+  font-size: 1.3rem; font-weight: 700; margin-bottom: 20px; padding: 12px 20px;
+  border-radius: var(--radius); border: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.example-major-header.mc-header { background: linear-gradient(135deg, rgba(108,92,231,0.15), rgba(108,92,231,0.05)); border-color: rgba(108,92,231,0.3); }
+.example-major-header.num-header { background: linear-gradient(135deg, rgba(0,206,201,0.15), rgba(0,206,201,0.05)); border-color: rgba(0,206,201,0.3); }
+.example-major-badge { padding: 4px 14px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.example-major-badge.mc-badge { background: var(--accent); color: white; }
+.example-major-badge.num-badge { background: var(--accent2); color: #111; }
+.example-sub-section { margin-bottom: 28px; margin-left: 16px; padding-left: 20px; border-left: 3px solid var(--border); }
+.example-sub-header {
+  font-size: 1rem; font-weight: 600; color: var(--accent4); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.example-sub-count { font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+.example-grid { display: grid; gap: 20px; }
+.example-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; display: flex; flex-direction: column; gap: 16px; transition: border-color 0.2s;
+}
+.example-card:hover { border-color: var(--accent2); }
+.example-views {
+  display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+}
+.example-views::-webkit-scrollbar { height: 6px; }
+.example-views::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+.example-view-item {
+  flex: 0 0 auto; scroll-snap-align: start; text-align: center;
+}
+.example-view-item img {
+  width: 260px; height: 195px; object-fit: cover; border-radius: 10px; background: #222;
+  cursor: pointer; transition: transform 0.2s;
+}
+.example-view-item img:hover { transform: scale(1.03); }
+.example-view-label {
+  font-family: monospace; font-size: 0.75rem; color: var(--muted); margin-top: 4px;
+}
+.example-views-count {
+  font-size: 0.8rem; color: var(--muted); font-weight: 600; margin-bottom: 4px;
+}
+.example-body { display: flex; flex-direction: column; gap: 8px; }
+.example-body .q-text { font-size: 0.95rem; line-height: 1.6; }
+/* Lightbox */
+.lightbox-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  z-index: 9999; justify-content: center; align-items: center; cursor: pointer;
+}
+.lightbox-overlay.active { display: flex; }
+.lightbox-overlay img { max-width: 90vw; max-height: 90vh; border-radius: 12px; }
+@media (max-width: 768px) {
+  .example-view-item img { width: 200px; height: 150px; }
+  .scene-gallery { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+@media (max-width: 768px) {
+  .charts-row { grid-template-columns: 1fr; }
+  .header h1 { font-size: 1.8rem; }
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- Lightbox for enlarged images -->
+<div class="lightbox-overlay" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" alt="Enlarged view">
+</div>
+
+<div class="header">
+  <h1><span>SceneShift Bench v3</span> Explorer</h1>
+  <p id="headerSub">Loading dataset...</p>
+</div>
+
+<nav class="nav" id="nav">
+  <a href="#overview" class="active">Overview</a>
+  <a href="#gallery">Scene Gallery</a>
+  <a href="#examples">Examples</a>
+  <a href="#distributions">Distributions</a>
+  <a href="#balance">Answer Balance</a>
+  <a href="#scenes">Scene Details</a>
+  <a href="#explorer">Question Explorer</a>
+  <a href="#analysis">Analysis Figure</a>
+</nav>
+
+<div class="container">
+  <div class="section" id="overview">
+    <h2 class="section-title">Dataset Overview</h2>
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="charts-row">
+      <div class="chart-box"><h3>Questions by Camera Pattern</h3><canvas id="chartPattern"></canvas></div>
+      <div class="chart-box"><h3>Questions by Type</h3><canvas id="chartType"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section" id="gallery">
+    <h2 class="section-title">Scene Gallery</h2>
+    <p style="color:var(--muted);margin-bottom:20px;">Top-down occupancy maps of all <span id="galleryCount"></span> scenes used in the benchmark. Each floor plan shows the room layout with furniture placement.</p>
+    <div class="scene-gallery" id="sceneGallery"></div>
+  </div>
+
+  <div class="section" id="examples">
+    <h2 class="section-title">Question &amp; Pattern Examples</h2>
+    <p style="color:var(--muted);margin-bottom:16px;">Examples organized by <strong>大类 (MC / Numerical)</strong> → <strong>小类 (sub-type)</strong>, each with multiple camera patterns.</p>
+    <div class="example-filters" id="exampleFilters"></div>
+    <div id="exampleGrid"></div>
+  </div>
+
+  <div class="section" id="distributions">
+    <h2 class="section-title">Distributions</h2>
+    <div class="charts-row">
+      <div class="chart-box"><h3>Pattern &times; Type Cross Tabulation</h3><canvas id="chartCross"></canvas></div>
+      <div class="chart-box"><h3>MC Source Type Distribution</h3><canvas id="chartMcSource"></canvas></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box"><h3>Object Size &mdash; Answer Histogram</h3><canvas id="histSize"></canvas></div>
+      <div class="chart-box"><h3>Object-Camera Distance &mdash; Answer Histogram</h3><canvas id="histDistCam"></canvas></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box"><h3>Object Pair Distance &mdash; Answer Histogram</h3><canvas id="histPairDist"></canvas></div>
+      <div class="chart-box"><h3>Top 25 Object Labels</h3><canvas id="chartLabels"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section" id="balance">
+    <h2 class="section-title">Answer Balance</h2>
+    <div class="charts-row">
+      <div class="chart-box"><h3>Yes / No Balance (Relative Questions)</h3><canvas id="chartYesNo"></canvas></div>
+      <div class="chart-box"><h3>MC Correct Answer Distribution (A/B/C/D)</h3><canvas id="chartMcAnswer"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section" id="scenes">
+    <h2 class="section-title">Per-Scene Breakdown</h2>
+    <div class="charts-row">
+      <div class="chart-box chart-wide"><h3>Questions per Scene (stacked by pattern)</h3><canvas id="chartScenePattern"></canvas></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-box chart-wide"><h3>Objects per Scene</h3><canvas id="chartSceneObjects"></canvas></div>
+    </div>
+    <div style="margin-top: 20px">
+      <div class="table-wrap" style="max-height: 600px; overflow-y: auto;">
+        <table>
+          <thead><tr><th>Scene ID</th><th class="num">Total Qs</th><th class="num">Objects</th><th>Object Labels</th><th class="num">around</th><th class="num">spherical</th><th class="num">linear</th><th class="num">rotation</th></tr></thead>
+          <tbody id="sceneTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="explorer">
+    <h2 class="section-title">Question Explorer</h2>
+    <p style="color:var(--muted);margin-bottom:16px;">Select a scene &amp; pattern to load questions on demand. Use filters to narrow down. Click &ldquo;Show Full JSON&rdquo; to see the complete original record.</p>
+    <div class="explorer-controls">
+      <label>Scene <select id="expScene"></select></label>
+      <label>Pattern <select id="expPattern"></select></label>
+      <label>Question Type <select id="expType"><option value="all">All Types</option></select></label>
+      <label>Search <input id="expSearch" type="search" placeholder="keyword in question / object / answer"></label>
+    </div>
+    <div class="toolbar">
+      <span class="meta" id="expMeta">Select scene &amp; pattern, then click Load.</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-primary" id="expLoad">Load Chunk</button>
+        <button class="btn" id="expPrev" disabled>&larr;</button>
+        <span class="meta" id="expPage">&mdash;</span>
+        <button class="btn" id="expNext" disabled>&rarr;</button>
+      </div>
+    </div>
+    <div class="q-list" id="expList"></div>
+  </div>
+
+  <div class="section" id="analysis">
+    <h2 class="section-title">Generated Analysis Figure</h2>
+    <img class="analysis-img" src="./assets/analysis.png" alt="SceneShift Bench v3 data distribution">
+  </div>
+</div>
+
+<script>
+let DB = null, chunkData = null, filteredChunk = [], expPage = 1, EXAMPLES = [];
+const PAGE_SIZE = 25;
+const COLORS = { around:'#6c5ce7', spherical:'#00cec9', linear:'#fdcb6e', rotation:'#fd79a8' };
+const TC = ['#6c5ce7','#00cec9','#fdcb6e','#fd79a8','#55efc4','#fab1a0','#74b9ff'];
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const fmt = n => new Intl.NumberFormat().format(n);
+async function fj(p) { const r = await fetch(p); return r.json(); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function makeHist(id, h, color, unit) {
+  if (!h) return;
+  const labels = h.bin_edges.slice(0,-1).map((e,i) => e.toFixed(1)+'–'+h.bin_edges[i+1].toFixed(1));
+  new Chart($(id), {
+    type:'bar',
+    data:{ labels, datasets:[{ data:h.counts, backgroundColor:color+'88', borderColor:color, borderWidth:1 }] },
+    options:{
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ title:c=>c[0].label+' '+unit, label:c=>fmt(c.raw)+' questions',
+          afterLabel: function() { return `Stats: n=${fmt(h.stats.count)}, μ=${h.stats.mean}, med=${h.stats.median}`; }
+        }}
+      },
+      scales:{ x:{ticks:{maxRotation:45,font:{size:10}}}, y:{beginAtZero:true} }
+    }
+  });
+}
+
+function renderOverview() {
+  const gs = DB.generation_summary || {};
+  const kpis = [
+    ['Total Questions', DB.total_questions],
+    ['Scenes', DB.total_scenes],
+    ['Patterns', DB.all_patterns.length],
+    ['Question Types', DB.all_question_types.length],
+    ['Obj/Scene', gs.max_objects_per_scene || 5],
+    ['Build Time', (gs.elapsed_minutes||0)+' min'],
+  ];
+  $('#kpiGrid').innerHTML = kpis.map(([l,v])=>`<div class="kpi-card"><span class="value">${typeof v==='number'?fmt(v):v}</span><span class="label">${l}</span></div>`).join('');
+  $('#headerSub').textContent = `${fmt(DB.total_questions)} questions · ${DB.total_scenes} scenes · ${DB.all_patterns.length} patterns · ${DB.all_question_types.length} question types`;
+
+  const ptns = Object.keys(DB.pattern_counts);
+  new Chart($('#chartPattern'), {
+    type:'doughnut',
+    data:{ labels:ptns.map(p=>p+' ('+fmt(DB.pattern_counts[p])+')'), datasets:[{ data:ptns.map(p=>DB.pattern_counts[p]), backgroundColor:ptns.map(p=>COLORS[p]||'#666') }] },
+    options:{ plugins:{ legend:{position:'bottom'} } }
+  });
+
+  const types = Object.entries(DB.question_type_counts).sort((a,b)=>b[1]-a[1]);
+  new Chart($('#chartType'), {
+    type:'bar',
+    data:{ labels:types.map(t=>t[0]), datasets:[{ data:types.map(t=>t[1]), backgroundColor:types.map((_,i)=>TC[i%TC.length]) }] },
+    options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}} }
+  });
+}
+
+function renderDistributions() {
+  const ptns = DB.all_patterns, qts = DB.all_question_types;
+  new Chart($('#chartCross'), {
+    type:'bar',
+    data:{ labels:ptns, datasets:qts.map((qt,i)=>({ label:qt, data:ptns.map(p=>(DB.pattern_type_cross[p]||{})[qt]||0), backgroundColor:TC[i%TC.length]+'cc' })) },
+    options:{ plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}, scales:{x:{},y:{stacked:true,beginAtZero:true}}, interaction:{mode:'index'} }
+  });
+
+  const mcSrc = Object.entries(DB.mc_source_dist||{});
+  if (mcSrc.length) {
+    new Chart($('#chartMcSource'), {
+      type:'pie',
+      data:{ labels:mcSrc.map(s=>s[0]+' ('+fmt(s[1])+')'), datasets:[{ data:mcSrc.map(s=>s[1]), backgroundColor:TC }] },
+      options:{ plugins:{legend:{position:'bottom'}} }
+    });
+  }
+
+  const h = DB.numeric_histograms || {};
+  makeHist('#histSize', h.object_size, '#6c5ce7', 'm');
+  makeHist('#histDistCam', h.object_distance_to_camera, '#00cec9', 'm');
+  makeHist('#histPairDist', h.object_pair_distance_center, '#fd79a8', 'm');
+
+  const labels = (DB.top_object_labels||[]).slice(0,25);
+  if (labels.length) {
+    new Chart($('#chartLabels'), {
+      type:'bar',
+      data:{ labels:labels.map(l=>l.label), datasets:[{ data:labels.map(l=>l.count), backgroundColor:'#55efc488', borderColor:'#55efc4', borderWidth:1 }] },
+      options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}} }
+    });
+  }
+}
+
+function renderBalance() {
+  const yn = DB.yes_no_counts || {};
+  const types = Object.keys(yn);
+  new Chart($('#chartYesNo'), {
+    type:'bar',
+    data:{
+      labels:types.map(t=>t.replace('relative_','rel_')),
+      datasets:[
+        { label:'Yes', data:types.map(t=>yn[t].Yes||0), backgroundColor:'#55efc4cc' },
+        { label:'No', data:types.map(t=>yn[t].No||0), backgroundColor:'#fd79a8cc' },
+      ]
+    },
+    options:{
+      plugins:{
+        legend:{position:'bottom'},
+        tooltip:{ callbacks:{ afterBody:c=>{ const t=types[c[0].dataIndex]; const tot=(yn[t].Yes||0)+(yn[t].No||0); return ((yn[t].Yes||0)/tot*100).toFixed(1)+'% Yes'; } } }
+      },
+      scales:{y:{beginAtZero:true}}
+    }
+  });
+
+  const mc = DB.mc_answer_dist || {};
+  const letters = ['A','B','C','D'].filter(l=>l in mc);
+  new Chart($('#chartMcAnswer'), {
+    type:'bar',
+    data:{ labels:letters, datasets:[{ data:letters.map(l=>mc[l]||0), backgroundColor:['#6c5ce7','#00cec9','#fdcb6e','#fd79a8'] }] },
+    options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+  });
+}
+
+function renderScenes() {
+  const scenes = DB.all_scenes, ptns = DB.all_patterns;
+  new Chart($('#chartScenePattern'), {
+    type:'bar',
+    data:{ labels:scenes.map(s=>s.substring(0,4)), datasets:ptns.map(p=>({ label:p, data:DB.scene_pattern_heatmap.map(row=>row[ptns.indexOf(p)]), backgroundColor:COLORS[p]+'bb' })) },
+    options:{ plugins:{legend:{position:'bottom'}}, scales:{x:{stacked:true,ticks:{font:{size:9}}},y:{stacked:true,beginAtZero:true}} }
+  });
+
+  const objCounts = DB.scene_overview.map(s=>s.num_objects);
+  new Chart($('#chartSceneObjects'), {
+    type:'bar',
+    data:{ labels:scenes.map(s=>s.substring(0,4)), datasets:[{ data:objCounts, backgroundColor:'#00cec966', borderColor:'#00cec9', borderWidth:1 }] },
+    options:{ plugins:{legend:{display:false}}, scales:{x:{ticks:{font:{size:9}}},y:{beginAtZero:true,max:8}} }
+  });
+
+  $('#sceneTableBody').innerHTML = DB.scene_overview.map(s=>{
+    const bp = s.by_pattern||{};
+    return `<tr>
+      <td style="font-family:monospace;font-size:0.85rem">${s.scene_id}</td>
+      <td class="num">${fmt(s.total_questions)}</td>
+      <td class="num">${s.num_objects}</td>
+      <td>${(s.object_labels||[]).map(l=>`<span class="tag tag-teal">${esc(l)}</span>`).join('')}</td>
+      <td class="num">${bp.around||0}</td>
+      <td class="num">${bp.spherical||0}</td>
+      <td class="num">${bp.linear||0}</td>
+      <td class="num">${bp.rotation||0}</td>
+    </tr>`;
+  }).join('');
+}
+
+function initExplorer() {
+  const ss=$('#expScene'), ps=$('#expPattern'), ts=$('#expType');
+  const scenes=[...new Set(DB.chunk_manifest.map(c=>c.scene_id))].sort();
+  const patterns=[...new Set(DB.chunk_manifest.map(c=>c.pattern))].sort();
+  ss.innerHTML=scenes.map(s=>`<option value="${s}">${s}</option>`).join('');
+  ps.innerHTML=patterns.map(p=>`<option value="${p}">${p}</option>`).join('');
+  DB.all_question_types.forEach(qt=>{ ts.innerHTML+=`<option value="${qt}">${qt}</option>`; });
+
+  $('#expLoad').onclick=loadExpChunk;
+  $('#expPrev').onclick=()=>{expPage--;renderExp();};
+  $('#expNext').onclick=()=>{expPage++;renderExp();};
+  ts.onchange=()=>{expPage=1;filterExp();renderExp();};
+  $('#expSearch').oninput=()=>{expPage=1;filterExp();renderExp();};
+}
+
+async function loadExpChunk() {
+  const s=$('#expScene').value, p=$('#expPattern').value;
+  $('#expMeta').textContent='Loading...';
+  try {
+    chunkData = await fj(`./data/chunks/${p}__${s}.json`);
+    expPage=1; filterExp(); renderExp();
+  } catch(e) {
+    $('#expMeta').textContent=`No data for ${s} / ${p}`;
+    $('#expList').innerHTML='';
+  }
+}
+
+function filterExp() {
+  if(!chunkData) return;
+  const type=$('#expType').value, search=$('#expSearch').value.toLowerCase().trim();
+  filteredChunk = chunkData.questions.filter(q=>{
+    if(type!=='all'&&q.question_type!==type) return false;
+    if(search){ const h=[q.question,q.answer,q.question_type,q.question_id,...(q.objects||[]).map(o=>o.label)].join(' ').toLowerCase(); if(!h.includes(search)) return false; }
+    return true;
+  });
+}
+
+function renderExp() {
+  if(!chunkData) return;
+  const total=filteredChunk.length, pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  expPage=Math.max(1,Math.min(expPage,pages));
+  const start=(expPage-1)*PAGE_SIZE, items=filteredChunk.slice(start,start+PAGE_SIZE);
+
+  const meta = chunkData.metadata || {};
+  $('#expMeta').textContent=`${fmt(total)} questions in ${chunkData.scene_id} / ${chunkData.pattern}` + (meta.focus_objects ? ` — focus: ${meta.focus_objects.join(', ')}` : '');
+  $('#expPage').textContent=`${expPage}/${pages}`;
+  $('#expPrev').disabled=expPage<=1;
+  $('#expNext').disabled=expPage>=pages;
+
+  $('#expList').innerHTML=items.map((q,idx)=>{
+    const gi=start+idx;
+    const objs=(q.objects||[]).map(o=>`<span class="tag tag-teal">${esc(o.label)}</span>`).join('');
+    const choices=q.choices?`<div style="margin-top:6px;font-size:0.85rem;color:var(--muted)">${Object.entries(q.choices).map(([k,v])=>`<strong>${k}:</strong> ${v}`).join(' &nbsp;|&nbsp; ')}</div>`:'';
+    return `<div class="q-card">
+      <div class="q-tags">
+        <span class="tag">${q.question_type}</span>
+        ${objs}
+        <span class="tag tag-pink" style="font-family:monospace;font-size:0.72rem">${q.question_id||''}</span>
+      </div>
+      <div class="q-text">${esc(q.question)}</div>
+      <div class="q-answer"><strong>Answer:</strong> ${esc(q.answer)}${q.answer_text?' ('+esc(q.answer_text)+')':''}${q.answer_value!=null?' &nbsp;|&nbsp; value: '+q.answer_value:''}${q.mc_source_type?' &nbsp;|&nbsp; mc_source: '+q.mc_source_type:''}</div>
+      ${choices}
+      <div class="q-expand"><button class="btn" onclick="toggleJ(this,${gi})" style="font-size:0.8rem;padding:4px 12px;">Show Full JSON</button><div class="q-json" id="qj${gi}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function toggleJ(btn,i) {
+  const el=$('#qj'+i);
+  if(el.style.display==='block'){el.style.display='none';btn.textContent='Show Full JSON';}
+  else{el.textContent=JSON.stringify(filteredChunk[i],null,2);el.style.display='block';btn.textContent='Hide JSON';}
+}
+
+function initNav() {
+  const links=$$('.nav a');
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        links.forEach(a=>a.classList.remove('active'));
+        const l=document.querySelector(`.nav a[href="#${e.target.id}"]`);
+        if(l)l.classList.add('active');
+      }
+    });
+  },{rootMargin:'-20% 0px -70% 0px'});
+  $$('.section').forEach(s=>obs.observe(s));
+}
+
+Chart.defaults.color='#8888a4';
+Chart.defaults.borderColor='#2a2a38';
+Chart.defaults.font.family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+
+// ── Scene Gallery ──────────────────────────────────────────────────
+function renderGallery() {
+  const overview = DB.scene_overview || [];
+  $('#galleryCount').textContent = overview.length;
+  $('#sceneGallery').innerHTML = overview.map(s => {
+    const objTags = (s.object_labels||[]).slice(0,5).map(l => `<span class="tag tag-teal" style="font-size:0.68rem;padding:1px 6px">${esc(l)}</span>`).join('');
+    const extra = (s.object_labels||[]).length > 5 ? `<span class="tag" style="font-size:0.68rem;padding:1px 6px">+${(s.object_labels||[]).length - 5}</span>` : '';
+    return `<div class="scene-tile">
+      <img src="./data/scene_images/${s.scene_id}.png" alt="${s.scene_id}" loading="lazy">
+      <div class="scene-tile-info">
+        <div class="sid">${s.scene_id}</div>
+        <div class="smeta">${fmt(s.total_questions)} questions &middot; ${s.num_objects} objects</div>
+        <div class="obj-tags">${objTags}${extra}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Question Examples ──────────────────────────────────────────────
+let exFilterType = 'all', exFilterPattern = 'all';
+
+const MAJOR_CATEGORIES = {
+  mc: { label: '选择题 (Multiple Choice)', cssClass: 'mc', order: 0 },
+  numerical: { label: '数值题 (Numerical)', cssClass: 'num', order: 1 },
+};
+
+function renderExamples() {
+  // Build filter buttons — pattern filter only
+  const patterns = [...new Set(EXAMPLES.map(e => e.pattern))].sort();
+  
+  let filterHtml = '<strong style="color:var(--muted);font-size:0.82rem;line-height:2.2">Pattern:</strong> ';
+  filterHtml += `<span class="filter-btn ${exFilterPattern==='all'?'active':''}" data-fp="all">All</span>`;
+  patterns.forEach(p => { filterHtml += `<span class="filter-btn ${exFilterPattern===p?'active':''}" data-fp="${p}">${p}</span>`; });
+  
+  $('#exampleFilters').innerHTML = filterHtml;
+  
+  // Attach filter events
+  $$('#exampleFilters .filter-btn').forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.fp !== undefined) exFilterPattern = btn.dataset.fp;
+      renderExamples();
+    };
+  });
+  
+  // Filter examples
+  const filtered = EXAMPLES.filter(e => {
+    if (exFilterPattern !== 'all' && e.pattern !== exFilterPattern) return false;
+    return true;
+  });
+  
+  // Group by major_category → sub_type
+  const grouped = {};
+  filtered.forEach(e => {
+    const cat = e.major_category || 'other';
+    const sub = e.sub_type || e.question_type;
+    if (!grouped[cat]) grouped[cat] = {};
+    if (!grouped[cat][sub]) grouped[cat][sub] = { label: e.sub_type_label || sub, items: [] };
+    grouped[cat][sub].items.push(e);
+  });
+  
+  // Render hierarchical layout
+  let globalIdx = 0;
+  let html = '';
+  const catKeys = Object.keys(grouped).sort((a,b) => (MAJOR_CATEGORIES[a]?.order??9) - (MAJOR_CATEGORIES[b]?.order??9));
+  
+  catKeys.forEach(catKey => {
+    const catInfo = MAJOR_CATEGORIES[catKey] || { label: catKey, cssClass: 'mc' };
+    const subTypes = grouped[catKey];
+    const catCount = Object.values(subTypes).reduce((s,st) => s + st.items.length, 0);
+    
+    html += `<div class="example-major-section">`;
+    html += `<div class="example-major-header ${catInfo.cssClass}-header">
+      <span class="example-major-badge ${catInfo.cssClass}-badge">${catKey.toUpperCase()}</span>
+      ${catInfo.label} <span style="font-size:0.85rem;color:var(--muted);font-weight:400">(${catCount} examples)</span>
+    </div>`;
+    
+    const subKeys = Object.keys(subTypes).sort();
+    subKeys.forEach(subKey => {
+      const st = subTypes[subKey];
+      html += `<div class="example-sub-section">`;
+      html += `<div class="example-sub-header">${st.label} <span class="example-sub-count">${st.items.length} examples</span></div>`;
+      html += `<div class="example-grid">`;
+      
+      st.items.forEach((ex, localIdx) => {
+        const idx = globalIdx++;
+        const objs = (ex.objects||[]).map(l => `<span class="tag tag-teal">${esc(l)}</span>`).join('');
+        const choicesHtml = ex.choices ? `<div style="margin-top:6px;font-size:0.85rem;color:var(--muted)">${Object.entries(ex.choices).map(([k,v])=>`<strong>${k}:</strong> ${v}`).join(' &nbsp;|&nbsp; ')}</div>` : '';
+        const imgs = ex.all_images || [ex.image];
+        const viewsHtml = imgs.map((img, vi) => `<div class="example-view-item"><img src="./data/${img}" alt="View ${vi+1}" loading="lazy" onclick="openLightbox(this.src)"><div class="example-view-label">View ${vi+1}</div></div>`).join('');
+        html += `<div class="example-card">
+          <div class="example-views-count">${ex.scene_id} &mdash; ${imgs.length} camera view${imgs.length>1?'s':''}</div>
+          <div class="example-views">${viewsHtml}</div>
+          <div class="example-body">
+            <div class="q-tags">
+              <span class="tag">${ex.question_type}</span>
+              <span class="tag tag-yellow">${ex.pattern}</span>
+              ${objs}
+            </div>
+            <div class="q-text">${esc(ex.question)}</div>
+            <div class="q-answer"><strong>Answer:</strong> ${esc(ex.answer)}${ex.answer_text?' ('+esc(ex.answer_text)+')':''}${ex.answer_value!=null?' &nbsp;|&nbsp; value: '+ex.answer_value:''}${ex.mc_source_type?' &nbsp;|&nbsp; mc_source: '+ex.mc_source_type:''}</div>
+            ${choicesHtml}
+            <div class="q-expand"><button class="btn" onclick="toggleExJson(this,${idx})" style="font-size:0.8rem;padding:4px 12px;">Show Full JSON</button><div class="q-json" id="exj${idx}"></div></div>
+          </div>
+        </div>`;
+      });
+      
+      html += `</div></div>`;
+    });
+    
+    html += `</div>`;
+  });
+  
+  $('#exampleGrid').innerHTML = html || '<p style="color:var(--muted);padding:20px;">No examples match the selected filters.</p>';
+}
+
+function openLightbox(src) {
+  const lb = $('#lightbox');
+  $('#lightboxImg').src = src;
+  lb.classList.add('active');
+}
+function closeLightbox() {
+  $('#lightbox').classList.remove('active');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+function toggleExJson(btn, i) {
+  const el = $('#exj'+i);
+  if (el.style.display==='block') { el.style.display='none'; btn.textContent='Show Full JSON'; }
+  else {
+    // Rebuild filtered list to find the right item
+    const filtered = EXAMPLES.filter(e => {
+      if (exFilterPattern !== 'all' && e.pattern !== exFilterPattern) return false;
+      return true;
+    });
+    el.textContent=JSON.stringify(filtered[i].full_json,null,2); el.style.display='block'; btn.textContent='Hide JSON';
+  }
+}
+
+(async function init(){
+  const [db, examples] = await Promise.all([fj('./data/dashboard.json'), fj('./data/examples.json')]);
+  DB = db;
+  EXAMPLES = examples;
+  renderOverview();
+  renderGallery();
+  renderExamples();
+  renderDistributions();
+  renderBalance();
+  renderScenes();
+  initExplorer();
+  initNav();
+})().catch(err=>{
+  document.querySelector('.container').innerHTML=`<pre style="color:#fd79a8;padding:40px;">${err.stack}</pre>`;
+});
+</script>
+</body>
+</html>
